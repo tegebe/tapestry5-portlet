@@ -20,7 +20,7 @@ public class TemplatingTest extends SeleniumTestCase {
 	public void testTemplatingWhenMinimized() {
 		open("/tapestry5-portlet/portal/Index");
 		click("//a[@id='templating']");
-		sleep(10000);
+		waitForPageToLoad();
 		click("//div[@id='portlets-right-column']//a[@title='Minimize']");
 
 		checkStrings("Min", "Normal", "Minimized :",
@@ -31,7 +31,7 @@ public class TemplatingTest extends SeleniumTestCase {
 	public void testTemplatingWhenMaximized() {
 		open("/tapestry5-portlet/portal/Index");
 		click("//a[@id='templating']");
-		sleep(10000);
+		waitForPageToLoad();
 		click("//div[@id='portlets-right-column']//a[@title='Maximize']");
 
 		checkStrings("Max", "Maximized", "Maximized :",
