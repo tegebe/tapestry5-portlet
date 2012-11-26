@@ -1,4 +1,4 @@
-// Copyright 2005 The Apache Software Foundation
+// Copyright 20012 The Apache Software Foundation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import org.apache.tapestry5.corelib.components.DateField;
 import org.apache.tapestry5.corelib.components.FormInjector;
 import org.apache.tapestry5.corelib.internal.FormSupportImpl;
 import org.apache.tapestry5.corelib.mixins.Autocomplete;
+import org.apache.tapestry5.internal.services.CookieSink;
 import org.apache.tapestry5.internal.services.CookieSource;
 import org.apache.tapestry5.internal.services.DocumentLinker;
 import org.apache.tapestry5.internal.services.LinkSource;
@@ -124,6 +125,7 @@ import org.apache.tapestry5.services.ApplicationInitializer;
 import org.apache.tapestry5.services.AssetFactory;
 import org.apache.tapestry5.services.AssetSource;
 import org.apache.tapestry5.services.ComponentClassResolver;
+import org.apache.tapestry5.services.ComponentClasses;
 import org.apache.tapestry5.services.ComponentEventRequestFilter;
 import org.apache.tapestry5.services.ComponentEventRequestHandler;
 import org.apache.tapestry5.services.ComponentEventResultProcessor;
@@ -131,6 +133,7 @@ import org.apache.tapestry5.services.ContextProvider;
 import org.apache.tapestry5.services.Environment;
 import org.apache.tapestry5.services.ExceptionReporter;
 import org.apache.tapestry5.services.FormSupport;
+import org.apache.tapestry5.services.InvalidationEventHub;
 import org.apache.tapestry5.services.MarkupRenderer;
 import org.apache.tapestry5.services.MarkupRendererFilter;
 import org.apache.tapestry5.services.MarkupWriterFactory;
@@ -151,31 +154,23 @@ import org.apache.tapestry5.services.pageload.ComponentResourceLocator;
 import org.slf4j.Logger;
 
 public final class PortletModule {
+	
+	 
 
 	public static void bind(ServiceBinder binder) {
-		binder.bind(PortletRequestGlobals.class,
-				PortletRequestGlobalsImpl.class)
-				.scope(ScopeConstants.PERTHREAD);
-		binder.bind(PortletConfigProvider.class,
-				PortletConfigProviderImpl.class)
-				.scope(ScopeConstants.PERTHREAD);
-		binder.bind(PortletLinkSource.class, PortletLinkSourceImpl.class)
-				.withId("PortletLinkSource");
-		binder.bind(PortletActionRenderResponseGenerator.class,
-				PortletActionRenderResponseGeneratorImpl.class).withId(
-				"PortletActionRenderResponseGenerator");
+		binder.bind(PortletRequestGlobals.class,PortletRequestGlobalsImpl.class).scope(ScopeConstants.PERTHREAD);
+		binder.bind(PortletConfigProvider.class,PortletConfigProviderImpl.class).scope(ScopeConstants.PERTHREAD);
+		binder.bind(PortletLinkSource.class, PortletLinkSourceImpl.class).withId("PortletLinkSource");
+		binder.bind(PortletActionRenderResponseGenerator.class,PortletActionRenderResponseGeneratorImpl.class).withId("PortletActionRenderResponseGenerator");
 		binder.bind(PortletPageResolver.class, PortletPageResolverImpl.class);
-		binder.bind(PortletIdAllocatorFactory.class,
-				PortletIdAllocatorFactoryImpl.class);
-		binder.bind(PortletResourceResponseIdentifier.class,
-				PortletResourceResponseIdentifierImpl.class);
+		binder.bind(PortletIdAllocatorFactory.class,PortletIdAllocatorFactoryImpl.class);
+		binder.bind(PortletResourceResponseIdentifier.class,PortletResourceResponseIdentifierImpl.class);
 		binder.bind(ComponentRequestSelectorAnalyzer.class, PortletRequestSelectorAnalyzer.class).withId("PortletRequestSelectorAnalyzer");
 	}
 
 	public PortletRequest build(PortletRequestGlobals portletGlobals,
-			PropertyShadowBuilder shadowBuilder) {
-		return shadowBuilder.build(portletGlobals, "PortletRequest",
-				PortletRequest.class);
+								PropertyShadowBuilder shadowBuilder) {
+		return shadowBuilder.build(portletGlobals, "PortletRequest",PortletRequest.class);
 	}
 
 	public static void contributeFactoryDefaults(
@@ -191,8 +186,7 @@ public final class PortletModule {
 			@InjectService("PipelineBuilder") PipelineBuilder builder) {
 		PortletApplicationInitializer terminator = new PortletApplicationInitializer() {
 			public void initializeApplication(PortletContext context) {
-				initializer.initializeApplication(new PortletContextImpl(
-						context));
+				initializer.initializeApplication(new PortletContextImpl(context));
 			}
 		};
 
@@ -218,13 +212,10 @@ public final class PortletModule {
 				String pageName = pageResolver.resolve(request);
 				log.info("PORTLET ACTION REQUEST HANDLER for page " + pageName);
 
-				Request portletRequest = PortletUtilities.buildPortlet(request,
-						pageName, analyzer);
-				Response portletResponse = new PortletResponseImpl(response,
-						portletRequest);
+				Request portletRequest = PortletUtilities.buildPortlet(request,pageName, analyzer);
+				Response portletResponse = new PortletResponseImpl(response,portletRequest);
 
-				requestGlobals.storeRequestResponse(portletRequest,
-						portletResponse);
+				requestGlobals.storeRequestResponse(portletRequest,	portletResponse);
 				portletRequestGlobals.store(request, response);
 
 				return handler.service(portletRequest, portletResponse);
@@ -260,22 +251,15 @@ public final class PortletModule {
 						PortletConstants.LAST_ACTION_EXCEPTION) != null) {
 					pageName = exceptionPage;
 					Page page = pageCache.get(exceptionPage);
-					ExceptionReporter rootComponent = (ExceptionReporter) page
-							.getRootComponent();
-					rootComponent.reportException((Throwable) request
-							.getPortletSession().getAttribute(
-									PortletConstants.LAST_ACTION_EXCEPTION));
-					request.getPortletSession().removeAttribute(
-							PortletConstants.LAST_ACTION_EXCEPTION);
+					ExceptionReporter rootComponent = (ExceptionReporter) page.getRootComponent();
+					rootComponent.reportException((Throwable) request.getPortletSession().getAttribute(PortletConstants.LAST_ACTION_EXCEPTION));
+					request.getPortletSession().removeAttribute(PortletConstants.LAST_ACTION_EXCEPTION);
 				}
 
-				Request portletRequest = PortletUtilities.buildPortlet(request,
-						pageName, analyzer);
-				Response portletResponse = new PortletRenderResponseImpl(
-						response);
+				Request portletRequest = PortletUtilities.buildPortlet(request,	pageName, analyzer);
+				Response portletResponse = new PortletRenderResponseImpl(response);
 
-				requestGlobals.storeRequestResponse(portletRequest,
-						portletResponse);
+				requestGlobals.storeRequestResponse(portletRequest,	portletResponse);
 				portletRequestGlobals.store(request, response);
 
 				return handler.service(portletRequest, portletResponse);
@@ -301,16 +285,12 @@ public final class PortletModule {
 					ResourceResponse response) throws IOException,
 					PortletException {
 				String pageName = pageResolver.resolve(request);
-				log.info("PORTLET RESSOURCES REQUEST HANDLER for page "
-						+ pageName);
+				log.info("PORTLET RESSOURCES REQUEST HANDLER for page "	+ pageName);
 
-				Request portletRequest = PortletUtilities.buildPortlet(request,
-						pageName, analyzer);
-				Response portletResponse = new PortletResourceResponseImpl(
-						response);
+				Request portletRequest = PortletUtilities.buildPortlet(request,	pageName, analyzer);
+				Response portletResponse = new PortletResourceResponseImpl(	response);
 
-				requestGlobals.storeRequestResponse(portletRequest,
-						portletResponse);
+				requestGlobals.storeRequestResponse(portletRequest,portletResponse);
 				portletRequestGlobals.store(request, response);
 
 				return handler.service(portletRequest, portletResponse);
@@ -345,11 +325,9 @@ public final class PortletModule {
 						pageName + ":" + request.getEvent().getName() + "/"
 								+ request.getEvent().getValue().toString(),
 						analyzer);
-				Response portletResponse = new PortletResponseImpl(response,
-						portletRequest);
+				Response portletResponse = new PortletResponseImpl(response,portletRequest);
 
-				requestGlobals.storeRequestResponse(portletRequest,
-						portletResponse);
+				requestGlobals.storeRequestResponse(portletRequest,	portletResponse);
 				portletRequestGlobals.store(request, response);
 
 				return handler.service(portletRequest, portletResponse);
@@ -372,14 +350,27 @@ public final class PortletModule {
 				portletGlobals);
 	}
 
-	public CookieSource buildPortletCookieSource() {
+	public CookieSource buildPortletCookieSource(@InjectService("PortletRequestGlobals") final PortletRequestGlobals portletRequestGlobals) {
 		return new CookieSource() {
-			public Cookie[] getCookies() {
-				return new Cookie[0];
-			}
+			public Cookie[] getCookies()
+            {
+                return portletRequestGlobals.getPortletRequest().getCookies();
+            }
 
 		};
 	}
+	
+    public CookieSink buildPortletCookieSink(@InjectService("PortletRequestGlobals") final PortletRequestGlobals portletRequestGlobals)
+    {
+        return new CookieSink()
+        {
+
+            public void addCookie(Cookie cookie)
+            {
+            	portletRequestGlobals.getPortletResponse().addProperty(cookie);
+            }
+        };
+    }
 
 	public void contributeMarkupRenderer(
 			OrderedConfiguration<MarkupRendererFilter> configuration,
@@ -437,11 +428,9 @@ public final class PortletModule {
 
 				String namespace = "_" + uid;
 
-				IdAllocator idAllocator = iaFactory
-						.getNewPortletIdAllocator(namespace);
+				IdAllocator idAllocator = iaFactory.getNewPortletIdAllocator(namespace);
 
-				DocumentLinker linker = environment
-						.peekRequired(DocumentLinker.class);
+				DocumentLinker linker = environment.peekRequired(DocumentLinker.class);
 
 				JavaScriptSupportImpl support = new JavaScriptSupportImpl(
 						linker, javascriptStackSource,
@@ -512,8 +501,7 @@ public final class PortletModule {
 	public ComponentEventResultProcessor buildPorletComponentEventResultProcessor(
 			Map<Class, ComponentEventResultProcessor> configuration,
 			StrategyBuilder strategyBuilder) {
-		return constructComponentEventResultProcessor(configuration,
-				strategyBuilder);
+		return constructComponentEventResultProcessor(configuration,strategyBuilder);
 	}
 
 	/**
@@ -524,20 +512,13 @@ public final class PortletModule {
 	public void contributePorletComponentEventResultProcessor(
 			MappedConfiguration<Class, ComponentEventResultProcessor> configuration,
 			final PortletRequestGlobals portletGlobals) {
-		configuration.addInstance(PortletRenderable.class,
-				PortletActionResultProcessor.class);
-		configuration.addInstance(Event.class,
-				PortletEventResultProcessor.class);
-		configuration.addInstance(StreamResponse.class,
-				StreamResponseResultProcessor.class);
-		configuration.addInstance(Class.class,
-				PortletClassResultProcessor.class);
-		configuration.addInstance(String.class,
-				PortletPageNameComponentEventResultProcessor.class);
-		configuration.addInstance(Component.class,
-				PortletComponentInstanceEventResultProcessor.class);
-		configuration.addInstance(PortalPage.class,
-				PortalPageNameComponentEventResultProcessor.class);
+		configuration.addInstance(PortletRenderable.class,PortletActionResultProcessor.class);
+		configuration.addInstance(Event.class,PortletEventResultProcessor.class);
+		configuration.addInstance(StreamResponse.class,	StreamResponseResultProcessor.class);
+		configuration.addInstance(Class.class,PortletClassResultProcessor.class);
+		configuration.addInstance(String.class,PortletPageNameComponentEventResultProcessor.class);
+		configuration.addInstance(Component.class,PortletComponentInstanceEventResultProcessor.class);
+		configuration.addInstance(PortalPage.class,PortalPageNameComponentEventResultProcessor.class);
 
 		/**
 		 * Explicit redirect is done through URL
@@ -553,15 +534,12 @@ public final class PortletModule {
 				new ComponentEventResultProcessor<Link>() {
 					public void processResultValue(Link value)
 							throws IOException {
-						StateAwareResponse response = (StateAwareResponse) portletGlobals
-								.getPortletResponse();
+						StateAwareResponse response = (StateAwareResponse) portletGlobals.getPortletResponse();
 						for (String name : value.getParameterNames()) {
 							response.setRenderParameter(name,
 									value.getParameterValue(name));
 						}
-						response.setRenderParameter(
-								PortletConstants.PORTLET_PAGE, PortletUtilities
-										.stripQueryString(value.toURI()));
+						response.setRenderParameter(PortletConstants.PORTLET_PAGE, PortletUtilities.stripQueryString(value.toURI()));
 					}
 				});
 
@@ -587,7 +565,9 @@ public final class PortletModule {
 			MappedConfiguration<Class, Object> configuration,
 
 			@InjectService("PortletCookieSource") final CookieSource cookieSource,
-
+			
+			@InjectService("PortletCookieSink") final CookieSink cookieSink,
+			
 			@InjectService("PortletLinkSource") final PortletLinkSource linkSource, 
 			
 			@InjectService("PortletRequestSelectorAnalyzer") final ComponentRequestSelectorAnalyzer analyzer)
@@ -595,6 +575,7 @@ public final class PortletModule {
 	{
 		configuration.add(LinkSource.class, linkSource);
 		configuration.add(CookieSource.class, cookieSource);
+		configuration.add(CookieSink.class, cookieSink);
 		configuration.add(ComponentRequestSelectorAnalyzer.class, analyzer);
 	}
 
@@ -683,52 +664,36 @@ public final class PortletModule {
 			Configuration<DeclaredResourceResponseSender> configuration) {
 		// declare core component that will return resource response form ajax
 		// call
-		configuration.add(new DeclaredResourceResponseSender(DateField.class
-				.getName()));
-		configuration.add(new DeclaredResourceResponseSender(FormInjector.class
-				.getName()));
-		configuration.add(new DeclaredResourceResponseSender(BeanEditForm.class
-				.getName()));
+		configuration.add(new DeclaredResourceResponseSender(DateField.class.getName()));
+		configuration.add(new DeclaredResourceResponseSender(FormInjector.class.getName()));
+		configuration.add(new DeclaredResourceResponseSender(BeanEditForm.class.getName()));
 		// ajaxFormLoop
-		DeclaredResourceResponseSender ajaxFormLoop = new DeclaredResourceResponseSender(
-				AjaxFormLoop.class.getName());
-		ajaxFormLoop.addEvent(EventConstants.ADD_ROW);
-		ajaxFormLoop.addEvent(EventConstants.REMOVE_ROW);
+        DeclaredResourceResponseSender ajaxFormLoop = new DeclaredResourceResponseSender(
+                AjaxFormLoop.class.getName());
+        ajaxFormLoop.addEvent(EventConstants.ADD_ROW);
+        ajaxFormLoop.addEvent(EventConstants.REMOVE_ROW);
+        ajaxFormLoop.addEvent("triggerRemoveRow"); //See AjaxFormLoop.formLoopContext for more details
 		configuration.add(ajaxFormLoop);
 		// declare core mixin that will return resource response form ajax call
-		configuration.add(new DeclaredResourceResponseSender(Autocomplete.class
-				.getName(), true));
+		configuration.add(new DeclaredResourceResponseSender(Autocomplete.class.getName(), true));
 
 		// declare tapestry-jquery component that will return resource response
 		// form ajax call
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.AjaxUpload"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.CarouselItem"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.DataTable"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.DialogAjaxLink"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.InPlaceEditor"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.ProgressiveDisplay"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.RangeSlider"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.Slider"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.Tabs"));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.components.TwitterView"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.AjaxUpload"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.CarouselItem"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.DataTable"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.DialogAjaxLink"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.InPlaceEditor"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.ProgressiveDisplay"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.RangeSlider"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.Slider"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.Tabs"));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.components.TwitterView"));
 		// declare tapestry-jquery mixin that will return resource response form
 		// ajax call
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.mixins.Autocomplete", true));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.mixins.ZoneDroppable", true));
-		configuration.add(new DeclaredResourceResponseSender(
-				"org.got5.tapestry5.jquery.mixins.ZoneRefresh", true));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.mixins.Autocomplete", true));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.mixins.ZoneDroppable", true));
+		configuration.add(new DeclaredResourceResponseSender("org.got5.tapestry5.jquery.mixins.ZoneRefresh", true));
 		// for page or mixin like org.got5.tapestry5.jquery.mixins.Bind you have
 		// to declare the full pagename
 		// and the eventname that should be treat as resource URL
@@ -747,8 +712,7 @@ public final class PortletModule {
 	public void contributePersistentFieldManager(
 			MappedConfiguration<String, PersistentFieldStrategy> configuration,
 			@InjectService("PortletRequestGlobals") PortletRequestGlobals globals) {
-		configuration.add(
-				PortletPersistenceConstants.PORTLET_SESSION_APPLICATION_SCOPE,
+		configuration.add(PortletPersistenceConstants.PORTLET_SESSION_APPLICATION_SCOPE,
 				new PortletApplicationScopePersistentFieldStrategy(globals));
 
 	}
